@@ -1,0 +1,13 @@
+```mermaid
+timeline
+    title BlockTrace Chain-of-Custody
+    section Acquire
+        Analyst collects artifact : Hash + encrypt + pin to IPFS
+        RegisterEvidence tx : Block includes CID + metadata
+    section Transfer
+        Investigator requests custody : Backend validates role
+        TransferCustody tx : Ownership moves Org1 -> Org2
+    section Verification
+        Investigator rehashes file : Backend compares via VerifyEvidence
+        Court packages report : Generate signed PDF
+```

@@ -1,0 +1,25 @@
+{
+  "name": "blocktrace-evidence-chaincode",
+  "version": "0.1.0",
+  "description": "Hyperledger Fabric chaincode for BlockTrace forensic evidence ledger",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint lib",
+    "test": "mocha --recursive"
+  },
+  "dependencies": {
+    "fabric-contract-api": "^2.5.4",
+    "fabric-shim": "^2.5.4"
+  },
+  "devDependencies": {
+    "chai": "^4.3.10",
+    "eslint": "^8.57.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-n": "^16.6.2",
+    "eslint-plugin-promise": "^6.1.1",
+    "mocha": "^10.2.0",
+    "sinon": "^17.0.1"
+  },
+  "license": "Apache-2.0"
+}

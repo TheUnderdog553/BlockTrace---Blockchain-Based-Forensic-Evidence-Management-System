@@ -1,0 +1,23 @@
+{
+  "name": "blocktrace-backend",
+  "version": "0.1.0",
+  "description": "Express API gateway for BlockTrace",
+  "main": "app.js",
+  "scripts": {
+    "dev": "node app.js",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "morgan": "^1.10.0",
+    "dotenv": "^16.4.5",
+    "fabric-network": "^2.2.20"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-n": "^17.9.0",
+    "eslint-plugin-promise": "^7.2.1"
+  }
+}

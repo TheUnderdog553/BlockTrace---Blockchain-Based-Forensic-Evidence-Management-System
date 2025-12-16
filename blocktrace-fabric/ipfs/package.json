@@ -1,0 +1,11 @@
+{
+  "name": "blocktrace-ipfs-tools",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "pin": "node pin.js"
+  },
+  "dependencies": {
+    "ipfs-http-client": "^60.0.0"
+  }
+}

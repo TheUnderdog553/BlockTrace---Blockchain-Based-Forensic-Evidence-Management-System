@@ -1,0 +1,174 @@
+Organizations:
+  - &ForensicsOrg
+    Name: ForensicsOrgMSP
+    ID: ForensicsOrgMSP
+    MSPDir: ../crypto-config/peerOrganizations/forensics.blocktrace.com/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('ForensicsOrgMSP.admin', 'ForensicsOrgMSP.peer', 'ForensicsOrgMSP.client')"
+      Writers:
+        Type: Signature
+        Rule: "OR('ForensicsOrgMSP.admin', 'ForensicsOrgMSP.client')"
+      Admins:
+        Type: Signature
+        Rule: "OR('ForensicsOrgMSP.admin')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('ForensicsOrgMSP.peer')"
+    AnchorPeers:
+      - Host: peer0.forensics.blocktrace.com
+        Port: 7051
+
+  - &PoliceOrg
+    Name: PoliceOrgMSP
+    ID: PoliceOrgMSP
+    MSPDir: ../crypto-config/peerOrganizations/police.blocktrace.com/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('PoliceOrgMSP.admin', 'PoliceOrgMSP.peer', 'PoliceOrgMSP.client')"
+      Writers:
+        Type: Signature
+        Rule: "OR('PoliceOrgMSP.admin', 'PoliceOrgMSP.client')"
+      Admins:
+        Type: Signature
+        Rule: "OR('PoliceOrgMSP.admin')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('PoliceOrgMSP.peer')"
+    AnchorPeers:
+      - Host: peer0.police.blocktrace.com
+        Port: 9051
+
+  - &CourtOrg
+    Name: CourtOrgMSP
+    ID: CourtOrgMSP
+    MSPDir: ../crypto-config/peerOrganizations/court.blocktrace.com/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('CourtOrgMSP.admin', 'CourtOrgMSP.peer', 'CourtOrgMSP.client')"
+      Writers:
+        Type: Signature
+        Rule: "OR('CourtOrgMSP.admin', 'CourtOrgMSP.client')"
+      Admins:
+        Type: Signature
+        Rule: "OR('CourtOrgMSP.admin')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('CourtOrgMSP.peer')"
+    AnchorPeers:
+      - Host: peer0.court.blocktrace.com
+        Port: 11051
+
+  - &OrdererOrg
+    Name: OrdererOrg
+    ID: OrdererMSP
+    MSPDir: ../crypto-config/ordererOrganizations/blocktrace.com/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('OrdererMSP.admin')"
+      Writers:
+        Type: Signature
+        Rule: "OR('OrdererMSP.admin')"
+      Admins:
+        Type: Signature
+        Rule: "OR('OrdererMSP.admin')"
+
+Capabilities:
+  Channel: &ChannelCapabilities
+    V2_0: true
+  Orderer: &OrdererCapabilities
+    V2_0: true
+  Application: &ApplicationCapabilities
+    V2_5: true
+
+Channel: &ChannelDefaults
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+    BlockValidation:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+  Capabilities:
+    <<: *ChannelCapabilities
+
+Application: &ApplicationDefaults
+  ACLs:
+    _lifecycle/CheckCommitReadiness: /Channel/Application/Writers
+  Organizations:
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+    LifecycleEndorsement:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Endorsement"
+    Endorsement:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Endorsement"
+  Capabilities:
+    <<: *ApplicationCapabilities
+
+Orderer: &OrdererDefaults
+  OrdererType: etcdraft
+  Addresses:
+    - orderer.blocktrace.com:7050
+  EtcdRaft:
+    Consenters:
+      - Host: orderer.blocktrace.com
+        Port: 7050
+        ClientTLSCert: ../crypto-config/ordererOrganizations/blocktrace.com/orderers/orderer.blocktrace.com/tls/server.crt
+        ServerTLSCert: ../crypto-config/ordererOrganizations/blocktrace.com/orderers/orderer.blocktrace.com/tls/server.crt
+  Organizations:
+    - *OrdererOrg
+  Capabilities:
+    <<: *OrdererCapabilities
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+    BlockValidation:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+
+Profiles:
+  BlockTraceGenesis:
+    <<: *ChannelDefaults
+    Orderer:
+      <<: *OrdererDefaults
+  BlockTraceChannel:
+    <<: *ChannelDefaults
+    Orderer:
+      <<: *OrdererDefaults
+      Organizations:
+        - *OrdererOrg
+      Capabilities: *OrdererCapabilities
+    Application:
+      <<: *ApplicationDefaults
+      Organizations:
+        - *ForensicsOrg
+        - *PoliceOrg
+        - *CourtOrg
+      Capabilities: *ApplicationCapabilities
