@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 🔐 BlockTrace - Blockchain-Based Forensic Evidence Management System
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -335,4 +334,3 @@ Complete transparency in custody transfers
 Activity heatmaps showing evidence handling patterns
 PDF report generation with embedded QR codes for verification
 Multi-organization support with role-based access
->>>>>>> 7a2086aa7df98990b1a742f283c49d39bea896f1
