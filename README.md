@@ -123,7 +123,7 @@ This script will:
 - ✅ Launch backend API (port 4000)
 - ✅ Launch frontend (port 5173)
 
-#### Manual Start (Step by Step)
+#### B. Manual Start (Step by Step)
 
 If you prefer manual setup, see [STARTUP-COMMANDS.md](STARTUP-COMMANDS.md)
 
