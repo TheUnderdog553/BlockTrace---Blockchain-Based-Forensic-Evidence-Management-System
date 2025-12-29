@@ -109,10 +109,11 @@ npm install
 
 Ensure Docker Desktop is running before starting the blockchain network.
 
-### 5. Quick Start (Automated)
+### 5.Quick Start 
+#### A. Automated
 
 ```powershell
-# From the root directory
+# From the root directory, needs to be done for the first time only.
 .\QUICKSTART.ps1
 ```
 
@@ -122,9 +123,16 @@ This script will:
 - ✅ Launch backend API (port 4000)
 - ✅ Launch frontend (port 5173)
 
-### 6. Manual Start (Step by Step)
+#### Manual Start (Step by Step)
 
 If you prefer manual setup, see [STARTUP-COMMANDS.md](STARTUP-COMMANDS.md)
+
+### 6. Simple Start-up
+
+```powershell
+#for quickstart from second time onwards, use this command
+.\QUICKSTART-NEW.ps1
+```
 
 ## 📖 Usage
 
