@@ -3,17 +3,13 @@
 #  Automated startup for all services
 # ========================================
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 Write-Host "`n" -NoNewline
-Write-Host "╔══════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║     " -NoNewline -ForegroundColor Cyan
-Write-Host "BlockTrace Quick Start" -NoNewline -ForegroundColor White
-Write-Host "        ║" -ForegroundColor Cyan
-Write-Host "║   " -NoNewline -ForegroundColor Cyan
-Write-Host "Forensic Evidence Blockchain" -NoNewline -ForegroundColor Gray
-Write-Host "    ║" -ForegroundColor Cyan
-Write-Host "╚══════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "     BlockTrace Quick Start" -ForegroundColor White
+Write-Host "   Forensic Evidence Blockchain" -ForegroundColor Gray
+Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
 # ========================================
@@ -21,15 +17,18 @@ Write-Host ""
 # ========================================
 Write-Host "[1/4] Checking Docker Desktop..." -ForegroundColor Yellow
 try {
-    docker ps | Out-Null
-    Write-Host "      ✓ Docker is running" -ForegroundColor Green
-}
-catch {
-    Write-Host "      ✗ Docker Desktop is NOT running!" -ForegroundColor Red
+    docker ps 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "      OK Docker is running" -ForegroundColor Green
+    } else {
+        throw "Docker not running"
+    }
+} catch {
+    Write-Host "      ERROR Docker Desktop is NOT running!" -ForegroundColor Red
     Write-Host ""
     Write-Host "      Please:" -ForegroundColor Yellow
     Write-Host "      1. Open Docker Desktop application" -ForegroundColor White
-    Write-Host "      2. Wait for it to show 'Docker Desktop is running'" -ForegroundColor White
+    Write-Host "      2. Wait for it to show Docker Desktop is running" -ForegroundColor White
     Write-Host "      3. Run this script again" -ForegroundColor White
     Write-Host ""
     Read-Host "Press Enter to exit"
@@ -41,29 +40,27 @@ catch {
 # ========================================
 Write-Host "`n[2/4] Starting Blockchain Network..." -ForegroundColor Yellow
 
-$networkRunning = docker ps --filter "name=orderer.example.com" --format "{{.Names}}"
+$networkRunning = docker ps --filter "name=blocktrace.com" --format "{{.Names}}"
 if ($networkRunning) {
-    Write-Host "      ✓ Network already running" -ForegroundColor Green
-}
-else {
-    Write-Host "      → Starting Fabric containers..." -ForegroundColor Gray
+    Write-Host "      OK Network already running" -ForegroundColor Green
+} else {
+    Write-Host "      Starting BlockTrace network..." -ForegroundColor Gray
     
-    Set-Location C:\Users\Priyanshu\Desktop\Blocktrace\fabric-samples\test-network
+    Set-Location C:\Users\Priyanshu\Desktop\Blocktrace\blocktrace-fabric\network
     
-    $env:DOCKER_SOCK = "/var/run/docker.sock"
-    docker-compose -f compose/compose-test-net.yaml -f compose/docker/docker-compose-test-net.yaml up -d 2>&1 | Out-Null
+    docker-compose up -d 2>&1 | Out-Null
     
-    Start-Sleep -Seconds 3
+    Start-Sleep -Seconds 5
     
-    $containers = docker ps --filter "name=example.com" --format "{{.Names}}"
+    $containers = docker ps --filter "name=blocktrace.com" --format "{{.Names}}"
     if ($containers.Count -ge 3) {
-        Write-Host "      ✓ Network started successfully" -ForegroundColor Green
-        Write-Host "        • orderer.example.com" -ForegroundColor DarkGray
-        Write-Host "        • peer0.org1.example.com" -ForegroundColor DarkGray
-        Write-Host "        • peer0.org2.example.com" -ForegroundColor DarkGray
-    }
-    else {
-        Write-Host "      ✗ Network failed to start" -ForegroundColor Red
+        Write-Host "      OK Network started successfully" -ForegroundColor Green
+        Write-Host "        - orderer.blocktrace.com" -ForegroundColor DarkGray
+        Write-Host "        - peer0.police.blocktrace.com" -ForegroundColor DarkGray
+        Write-Host "        - peer0.forensics.blocktrace.com" -ForegroundColor DarkGray
+        Write-Host "        - peer0.court.blocktrace.com" -ForegroundColor DarkGray
+    } else {
+        Write-Host "      ERROR Network failed to start" -ForegroundColor Red
         exit 1
     }
 }
@@ -73,30 +70,18 @@ else {
 # ========================================
 Write-Host "`n[3/4] Starting Backend API..." -ForegroundColor Yellow
 
-# Stop any existing node processes
-Stop-Process -Name node -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 2
-
-# Start backend in background
-$backendPath = "C:\Users\Priyanshu\Desktop\Blocktrace\blocktrace-fabric\backend"
-Set-Location $backendPath
-
-$backendJob = Start-Job -ScriptBlock {
-    param($path)
-    Set-Location $path
-    node app.js
-} -ArgumentList $backendPath
-
-Start-Sleep -Seconds 3
-
-# Verify backend is running
-try {
-    $response = Invoke-WebRequest -Uri "http://localhost:4000/healthz" -UseBasicParsing -TimeoutSec 5
-    Write-Host "      ✓ Backend API running" -ForegroundColor Green
-    Write-Host "        http://localhost:4000" -ForegroundColor DarkGray
-}
-catch {
-    Write-Host "      ⚠ Backend starting (may take a moment)" -ForegroundColor Yellow
+# Check if backend is already running
+$backendRunning = Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object {$_.Path -like "*backend*"}
+if ($backendRunning) {
+    Write-Host "      OK Backend already running" -ForegroundColor Green
+} else {
+    $backendPath = "C:\Users\Priyanshu\Desktop\Blocktrace\blocktrace-fabric\backend"
+    
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$backendPath'; node app.js" -WindowStyle Minimized
+    
+    Start-Sleep -Seconds 3
+    
+    Write-Host "      OK Backend API started" -ForegroundColor Green
     Write-Host "        http://localhost:4000" -ForegroundColor DarkGray
 }
 
@@ -106,72 +91,43 @@ catch {
 Write-Host "`n[4/4] Starting Frontend..." -ForegroundColor Yellow
 
 $frontendPath = "C:\Users\Priyanshu\Desktop\Blocktrace\blocktrace-fabric\frontend"
-Set-Location $frontendPath
 
-$frontendJob = Start-Job -ScriptBlock {
-    param($path)
-    Set-Location $path
-    npm run dev
-} -ArgumentList $frontendPath
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$frontendPath'; npm run dev" -WindowStyle Minimized
 
-Start-Sleep -Seconds 5
+Start-Sleep -Seconds 3
 
-Write-Host "      ✓ Frontend server starting" -ForegroundColor Green
+Write-Host "      OK Frontend server starting" -ForegroundColor Green
 Write-Host "        http://localhost:5173" -ForegroundColor DarkGray
 
 # ========================================
 # SUMMARY
 # ========================================
 Write-Host ""
-Write-Host "╔══════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║      " -NoNewline -ForegroundColor Green
-Write-Host "✓ ALL SERVICES STARTED!" -NoNewline -ForegroundColor White
-Write-Host "        ║" -ForegroundColor Green
-Write-Host "╚══════════════════════════════════════╝" -ForegroundColor Green
+Write-Host "============================================" -ForegroundColor Green
+Write-Host "      ALL SERVICES STARTED!" -ForegroundColor White
+Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
 
-Write-Host "🌐 Access Points:" -ForegroundColor Cyan
-Write-Host "   ├─ Frontend:  " -NoNewline -ForegroundColor DarkGray
-Write-Host "http://localhost:5173" -ForegroundColor White
-Write-Host "   ├─ Backend:   " -NoNewline -ForegroundColor DarkGray
-Write-Host "http://localhost:4000" -ForegroundColor White
-Write-Host "   └─ Network:   " -NoNewline -ForegroundColor DarkGray
-Write-Host "3 containers running" -ForegroundColor White
+Write-Host "Access Points:" -ForegroundColor Cyan
+Write-Host "   Frontend:  http://localhost:5173" -ForegroundColor White
+Write-Host "   Backend:   http://localhost:4000" -ForegroundColor White
+Write-Host "   Network:   Docker containers running" -ForegroundColor White
 Write-Host ""
 
-Write-Host "📊 View Status:" -ForegroundColor Cyan
-Write-Host "   docker ps --filter " -NoNewline -ForegroundColor DarkGray
-Write-Host '"name=example.com"' -ForegroundColor White
+Write-Host "View Status:" -ForegroundColor Cyan
+Write-Host "   docker ps --filter name=blocktrace.com" -ForegroundColor DarkGray
 Write-Host ""
 
-Write-Host "🛑 Stop Services:" -ForegroundColor Cyan
+Write-Host "Stop Services:" -ForegroundColor Cyan
 Write-Host "   Stop-Process -Name node -Force" -ForegroundColor DarkGray
-Write-Host ""
-
-Write-Host "💡 Tip: " -NoNewline -ForegroundColor Yellow
-Write-Host "Check STARTUP-COMMANDS.md for detailed instructions" -ForegroundColor White
+Write-Host "   docker-compose -f blocktrace-fabric\network\docker-compose.yaml down" -ForegroundColor DarkGray
 Write-Host ""
 
 # Open browser
-Start-Sleep -Seconds 2
-Write-Host "🚀 Opening BlockTrace in browser..." -ForegroundColor Cyan
+Start-Sleep -Seconds 3
+Write-Host "Opening BlockTrace in browser..." -ForegroundColor Cyan
 Start-Process "http://localhost:5173"
 
 Write-Host ""
-Write-Host "Press Ctrl+C to stop monitoring (services will keep running)" -ForegroundColor Gray
+Write-Host "BlockTrace is ready to use!" -ForegroundColor Green
 Write-Host ""
-
-# Keep script running and show job status
-while ($true) {
-    Start-Sleep -Seconds 10
-    
-    $backendState = (Get-Job -Id $backendJob.Id).State
-    $frontendState = (Get-Job -Id $frontendJob.Id).State
-    
-    if ($backendState -eq "Failed") {
-        Write-Host "⚠ Backend job failed! Check logs." -ForegroundColor Red
-    }
-    if ($frontendState -eq "Failed") {
-        Write-Host "⚠ Frontend job failed! Check logs." -ForegroundColor Red
-    }
-}

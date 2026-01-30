@@ -71,16 +71,12 @@ const Verification = () => {
   }
 
   const calculateFileHash = async (file) => {
-    // Simulate hash calculation
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    // In production, calculate actual file hash using crypto.subtle or similar
-    // For demonstration: return the expected hash to simulate successful verification
-    const expectedHash = selectedEvidenceData?.verificationHash || selectedEvidenceData?.ipfsHash
-    
-    // For demo purposes, always return matching hash when evidence exists
-    // In production, this would calculate actual SHA-256 hash of the file
-    return expectedHash || 'd1e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7a8b9c0'
+    // Calculate actual SHA-256 hash of the file
+    const buffer = await file.arrayBuffer()
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    return hashHex
   }
 
   const handleVerify = async () => {

@@ -1,4 +1,5 @@
-'use strict'
+  
+  .'use strict'
 
 const { Contract } = require('fabric-contract-api')
 
@@ -183,6 +184,288 @@ class EvidenceContract extends Contract {
     }
     await iterator.close()
     return JSON.stringify(allResults)
+  }
+
+  // ==================== RANSOMWARE TRACEABILITY FUNCTIONS ====================
+
+  async RegisterRansomwareIncident (ctx, incidentId, ransomwareFamily, walletAddresses, metadataJson) {
+    if (!incidentId) throw new Error('incidentId is required')
+    const key = `RANSOMWARE_${incidentId}`
+    const exists = await this._evidenceExists(ctx, key)
+    if (exists) {
+      throw new Error(`Ransomware incident ${incidentId} already exists`)
+    }
+
+    let metadata
+    try {
+      metadata = metadataJson ? JSON.parse(metadataJson) : {}
+    } catch (err) {
+      throw new Error('metadata must be valid JSON')
+    }
+
+    let wallets = []
+    try {
+      wallets = walletAddresses ? JSON.parse(walletAddresses) : []
+    } catch (err) {
+      throw new Error('walletAddresses must be valid JSON array')
+    }
+
+    const reporter = this._getInvoker(ctx)
+    const now = this._now(ctx)
+
+    const incident = {
+      incidentId,
+      type: 'RANSOMWARE_INCIDENT',
+      ransomwareFamily: ransomwareFamily || 'UNKNOWN',
+      status: 'ACTIVE',
+      walletAddresses: wallets,
+      infectedSystems: [],
+      evidenceLinks: [],
+      paymentTrail: [],
+      metadata: {
+        ...metadata,
+        firstSeen: metadata.firstSeen || now,
+        severity: metadata.severity || 'CRITICAL',
+        targetedSectors: metadata.targetedSectors || [],
+        ransomNote: metadata.ransomNote || '',
+        encryptionType: metadata.encryptionType || '',
+        demandAmount: metadata.demandAmount || 0,
+        demandCurrency: metadata.demandCurrency || 'BTC'
+      },
+      reportedBy: reporter.mspId,
+      reporterId: reporter.id,
+      createdAt: now,
+      updatedAt: now,
+      timeline: [
+        {
+          action: 'INCIDENT_REGISTERED',
+          timestamp: now,
+          actor: reporter.id,
+          txId: ctx.stub.getTxID()
+        }
+      ]
+    }
+
+    await ctx.stub.putState(key, Buffer.from(JSON.stringify(incident)))
+    ctx.stub.setEvent('blocktrace.ransomware.registered', Buffer.from(JSON.stringify({ incidentId, ransomwareFamily })))
+    return incident
+  }
+
+  async AddInfectedSystem (ctx, incidentId, systemInfo) {
+    const key = `RANSOMWARE_${incidentId}`
+    const incident = await this._getEvidenceOrThrow(ctx, key)
+
+    let system
+    try {
+      system = JSON.parse(systemInfo)
+    } catch (err) {
+      throw new Error('systemInfo must be valid JSON')
+    }
+
+    const invoker = this._getInvoker(ctx)
+    const now = this._now(ctx)
+
+    const infectedSystem = {
+      hostname: system.hostname,
+      ipAddress: system.ipAddress,
+      macAddress: system.macAddress,
+      osVersion: system.osVersion,
+      infectionDate: system.infectionDate || now,
+      filesEncrypted: system.filesEncrypted || 0,
+      recoveryStatus: system.recoveryStatus || 'INFECTED',
+      addedBy: invoker.mspId,
+      timestamp: now
+    }
+
+    incident.infectedSystems.push(infectedSystem)
+    incident.updatedAt = now
+    incident.timeline.push({
+      action: 'SYSTEM_ADDED',
+      hostname: system.hostname,
+      timestamp: now,
+      actor: invoker.id,
+      txId: ctx.stub.getTxID()
+    })
+
+    await ctx.stub.putState(key, Buffer.from(JSON.stringify(incident)))
+    ctx.stub.setEvent('blocktrace.ransomware.system_added', Buffer.from(JSON.stringify({ incidentId, hostname: system.hostname })))
+    return incident
+  }
+
+  async TrackPayment (ctx, incidentId, paymentInfo) {
+    const key = `RANSOMWARE_${incidentId}`
+    const incident = await this._getEvidenceOrThrow(ctx, key)
+
+    let payment
+    try {
+      payment = JSON.parse(paymentInfo)
+    } catch (err) {
+      throw new Error('paymentInfo must be valid JSON')
+    }
+
+    const invoker = this._getInvoker(ctx)
+    const now = this._now(ctx)
+
+    const paymentRecord = {
+      transactionHash: payment.transactionHash,
+      fromWallet: payment.fromWallet,
+      toWallet: payment.toWallet,
+      amount: payment.amount,
+      currency: payment.currency || 'BTC',
+      timestamp: payment.timestamp || now,
+      blockHeight: payment.blockHeight,
+      confirmations: payment.confirmations || 0,
+      trackedBy: invoker.mspId,
+      notes: payment.notes || '',
+      recordedAt: now
+    }
+
+    incident.paymentTrail.push(paymentRecord)
+    incident.updatedAt = now
+    incident.timeline.push({
+      action: 'PAYMENT_TRACKED',
+      transactionHash: payment.transactionHash,
+      amount: payment.amount,
+      timestamp: now,
+      actor: invoker.id,
+      txId: ctx.stub.getTxID()
+    })
+
+    await ctx.stub.putState(key, Buffer.from(JSON.stringify(incident)))
+    ctx.stub.setEvent('blocktrace.ransomware.payment_tracked', Buffer.from(JSON.stringify({ incidentId, transactionHash: payment.transactionHash })))
+    return incident
+  }
+
+  async LinkEvidenceToRansomware (ctx, incidentId, evidenceId, relationship) {
+    const key = `RANSOMWARE_${incidentId}`
+    const incident = await this._getEvidenceOrThrow(ctx, key)
+    const evidence = await this._getEvidenceOrThrow(ctx, evidenceId)
+
+    const invoker = this._getInvoker(ctx)
+    const now = this._now(ctx)
+
+    const link = {
+      evidenceId,
+      relationship: relationship || 'RELATED',
+      linkedAt: now,
+      linkedBy: invoker.mspId
+    }
+
+    incident.evidenceLinks.push(link)
+    incident.updatedAt = now
+    incident.timeline.push({
+      action: 'EVIDENCE_LINKED',
+      evidenceId,
+      relationship,
+      timestamp: now,
+      actor: invoker.id,
+      txId: ctx.stub.getTxID()
+    })
+
+    await ctx.stub.putState(key, Buffer.from(JSON.stringify(incident)))
+    ctx.stub.setEvent('blocktrace.ransomware.evidence_linked', Buffer.from(JSON.stringify({ incidentId, evidenceId })))
+    return incident
+  }
+
+  async UpdateRansomwareStatus (ctx, incidentId, newStatus, notes) {
+    const key = `RANSOMWARE_${incidentId}`
+    const incident = await this._getEvidenceOrThrow(ctx, key)
+
+    const validStatuses = ['ACTIVE', 'CONTAINED', 'RESOLVED', 'INVESTIGATING', 'CLOSED']
+    if (!validStatuses.includes(newStatus)) {
+      throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`)
+    }
+
+    const invoker = this._getInvoker(ctx)
+    const now = this._now(ctx)
+    const oldStatus = incident.status
+
+    incident.status = newStatus
+    incident.updatedAt = now
+    incident.timeline.push({
+      action: 'STATUS_UPDATED',
+      oldStatus,
+      newStatus,
+      notes: notes || '',
+      timestamp: now,
+      actor: invoker.id,
+      txId: ctx.stub.getTxID()
+    })
+
+    await ctx.stub.putState(key, Buffer.from(JSON.stringify(incident)))
+    ctx.stub.setEvent('blocktrace.ransomware.status_updated', Buffer.from(JSON.stringify({ incidentId, oldStatus, newStatus })))
+    return incident
+  }
+
+  async GetRansomwareIncident (ctx, incidentId) {
+    const key = `RANSOMWARE_${incidentId}`
+    return await this._getEvidenceOrThrow(ctx, key)
+  }
+
+  async QueryRansomwareByFamily (ctx, ransomwareFamily) {
+    const query = {
+      selector: {
+        type: 'RANSOMWARE_INCIDENT',
+        ransomwareFamily
+      }
+    }
+    const queryString = JSON.stringify(query)
+    const iterator = await ctx.stub.getQueryResult(queryString)
+    const results = []
+
+    let result = await iterator.next()
+    while (!result.done) {
+      const strValue = Buffer.from(result.value.value.toString()).toString('utf8')
+      results.push(JSON.parse(strValue))
+      result = await iterator.next()
+    }
+    await iterator.close()
+    return JSON.stringify(results)
+  }
+
+  async QueryRansomwareByWallet (ctx, walletAddress) {
+    const query = {
+      selector: {
+        type: 'RANSOMWARE_INCIDENT',
+        walletAddresses: {
+          $elemMatch: {
+            $eq: walletAddress
+          }
+        }
+      }
+    }
+    const queryString = JSON.stringify(query)
+    const iterator = await ctx.stub.getQueryResult(queryString)
+    const results = []
+
+    let result = await iterator.next()
+    while (!result.done) {
+      const strValue = Buffer.from(result.value.value.toString()).toString('utf8')
+      results.push(JSON.parse(strValue))
+      result = await iterator.next()
+    }
+    await iterator.close()
+    return JSON.stringify(results)
+  }
+
+  async GetAllRansomwareIncidents (ctx) {
+    const query = {
+      selector: {
+        type: 'RANSOMWARE_INCIDENT'
+      }
+    }
+    const queryString = JSON.stringify(query)
+    const iterator = await ctx.stub.getQueryResult(queryString)
+    const results = []
+
+    let result = await iterator.next()
+    while (!result.done) {
+      const strValue = Buffer.from(result.value.value.toString()).toString('utf8')
+      results.push(JSON.parse(strValue))
+      result = await iterator.next()
+    }
+    await iterator.close()
+    return JSON.stringify(results)
   }
 }
 

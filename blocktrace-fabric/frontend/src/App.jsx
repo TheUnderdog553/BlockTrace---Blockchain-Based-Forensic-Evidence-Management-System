@@ -17,6 +17,10 @@ import Analytics from './pages/Analytics'
 import BlockchainStatus from './pages/BlockchainStatus'
 import Settings from './pages/Settings'
 import CourtReport from './pages/CourtReport'
+import RansomwareTracking from './pages/RansomwareTracking'
+import RansomwareDashboard from './pages/RansomwareDashboard'
+import WalletMonitoring from './pages/WalletMonitoring'
+import PaymentFlowVisualization from './pages/PaymentFlowVisualization'
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -58,6 +62,10 @@ function App() {
                         <Route path="/transfer" element={<CustodyTransfer />} />
                         <Route path="/verify" element={<Verification />} />
                         <Route path="/analytics" element={<Analytics />} />
+                        <Route path="/ransomware" element={<RansomwareTracking />} />
+                        <Route path="/ransomware-analytics" element={<RansomwareDashboard />} />
+                        <Route path="/wallet-monitoring" element={<WalletMonitoring />} />
+                        <Route path="/payment-flow" element={<PaymentFlowVisualization />} />
                         <Route path="/status" element={<BlockchainStatus />} />
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/court-report" element={<CourtReport />} />

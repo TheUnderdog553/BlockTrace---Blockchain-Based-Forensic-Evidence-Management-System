@@ -27,6 +27,16 @@ A comprehensive blockchain-powered system for managing forensic evidence with cr
 - **📈 Activity Heatmaps** - Visualize evidence handling patterns by day and time
 - **🌐 Multi-Organization Support** - Manage evidence across different organizations
 
+### 🆕 Ransomware & Crypto Tracking (NEW!)
+- **🛡️ Ransomware Incident Tracking** - Log and manage ransomware investigations
+- **💰 Wallet Monitoring** - Real-time Bitcoin wallet balance tracking and transaction history
+- **🔔 Activity Alerts** - Automated notifications when monitored wallets have new transactions
+- **🌐 Payment Flow Visualization** - Trace cryptocurrency transactions across multiple addresses
+- **📊 Ransomware Analytics** - Dashboard with incident statistics and trends
+- **🔍 Multi-Hop Transaction Tracing** - Follow funds through complex transaction networks
+
+> **See [WALLET-MONITORING-GUIDE.md](WALLET-MONITORING-GUIDE.md) for detailed documentation**
+
 ## 🏗️ Architecture
 
 ```
@@ -150,6 +160,10 @@ Once started, navigate to:
 - **Custody Transfer** - Transfer evidence between organizations
 - **Verification** - Verify evidence integrity
 - **Analytics** - View trends and activity patterns
+- **Ransomware Tracking** - Log ransomware incidents with wallet addresses
+- **Ransomware Analytics** - Visualize ransomware attack statistics
+- **Wallet Monitoring** - Real-time cryptocurrency wallet tracking (🆕)
+- **Payment Flow** - Trace Bitcoin transactions across addresses (🆕)
 - **Court Report** - Generate legal reports for evidence
 - **Blockchain Status** - Monitor network health
 
@@ -158,6 +172,8 @@ Once started, navigate to:
 - [Startup Commands](STARTUP-COMMANDS.md) - Manual startup guide
 - [Testing Guide](TESTING-GUIDE.md) - Feature testing instructions
 - [Firebase Setup](FIREBASE-SETUP.md) - Authentication configuration
+- [Wallet Monitoring Guide](WALLET-MONITORING-GUIDE.md) - Cryptocurrency tracking documentation (🆕)
+- [Wallet Monitoring Quick Start](WALLET-MONITORING-QUICKSTART.md) - Quick reference guide (🆕)
 
 ## 🔧 Configuration
 

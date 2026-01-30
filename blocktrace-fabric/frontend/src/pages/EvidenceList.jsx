@@ -102,14 +102,19 @@ const EvidenceList = () => {
     const savedData = localStorage.getItem('evidenceData')
     if (savedData) {
       const parsed = JSON.parse(savedData)
-      // Merge saved data with default, removing duplicates by ID
-      const allData = [...parsed, ...defaultData]
-      const uniqueData = allData.filter((item, index, self) =>
-        index === self.findIndex((t) => t.id === item.id)
-      )
-      setEvidenceData(uniqueData)
+      setEvidenceData(parsed)
     } else {
-      setEvidenceData(defaultData)
+      // Check if we've ever initialized
+      const hasInitialized = localStorage.getItem('evidenceInitialized')
+      if (!hasInitialized) {
+        // First time - load default data
+        setEvidenceData(defaultData)
+        localStorage.setItem('evidenceData', JSON.stringify(defaultData))
+        localStorage.setItem('evidenceInitialized', 'true')
+      } else {
+        // Already initialized before, but data is empty (user deleted everything)
+        setEvidenceData([])
+      }
     }
   }
 
@@ -165,28 +170,40 @@ const EvidenceList = () => {
       return
     }
 
-    // Remove from evidenceData
-    const evidenceData = JSON.parse(localStorage.getItem('evidenceData') || '[]')
-    const updatedEvidence = evidenceData.filter(e => e.id !== evidenceId)
-    localStorage.setItem('evidenceData', JSON.stringify(updatedEvidence))
+    try {
+      // Remove from evidenceData
+      const savedEvidence = JSON.parse(localStorage.getItem('evidenceData') || '[]')
+      const updatedEvidence = savedEvidence.filter(e => e.id !== evidenceId)
+      localStorage.setItem('evidenceData', JSON.stringify(updatedEvidence))
 
-    // Remove from custody chain
-    const custodyChain = JSON.parse(localStorage.getItem('custodyChain') || '{}')
-    delete custodyChain[evidenceId]
-    localStorage.setItem('custodyChain', JSON.stringify(custodyChain))
+      // Remove from hash registry
+      const hashRegistry = JSON.parse(localStorage.getItem('evidenceHashIndex') || '{}')
+      const normalizedId = evidenceId.trim().toUpperCase()
+      delete hashRegistry[normalizedId]
+      localStorage.setItem('evidenceHashIndex', JSON.stringify(hashRegistry))
 
-    // Remove from annotations
-    const annotations = JSON.parse(localStorage.getItem('annotations') || '{}')
-    delete annotations[evidenceId]
-    localStorage.setItem('annotations', JSON.stringify(annotations))
+      // Remove from custody chain
+      const custodyChain = JSON.parse(localStorage.getItem('custodyChain') || '{}')
+      delete custodyChain[evidenceId]
+      localStorage.setItem('custodyChain', JSON.stringify(custodyChain))
 
-    // Reload evidence list
-    loadEvidence()
+      // Remove from annotations
+      const annotations = JSON.parse(localStorage.getItem('annotations') || '{}')
+      delete annotations[evidenceId]
+      localStorage.setItem('annotations', JSON.stringify(annotations))
 
-    toast.success(`Evidence ${evidenceId} deleted successfully`, {
-      duration: 3000,
-      icon: '🗑️'
-    })
+      // Update state immediately
+      setEvidenceData(prevData => prevData.filter(e => e.id !== evidenceId))
+
+      // Show success notification
+      toast.success(`Evidence ${evidenceId} deleted successfully`, {
+        duration: 3000,
+        icon: '🗑️'
+      })
+    } catch (error) {
+      console.error('Error deleting evidence:', error)
+      toast.error('Failed to delete evidence')
+    }
   }
 
   const getStatusIcon = (status) => {

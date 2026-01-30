@@ -5,6 +5,7 @@ export default function BlockchainStatus() {
   const peers = [
     { name: 'Org1 Peer', org: 'ForensicsOrgMSP', status: 'online', address: 'localhost:7051', blocks: 127, uptime: '99.9%' },
     { name: 'Org2 Peer', org: 'PoliceOrgMSP', status: 'online', address: 'localhost:9051', blocks: 127, uptime: '99.8%' },
+    { name: 'Org3 Peer', org: 'CourtOrgMSP', status: 'online', address: 'localhost:11051', blocks: 127, uptime: '99.7%' },
   ]
 
   const channelInfo = {

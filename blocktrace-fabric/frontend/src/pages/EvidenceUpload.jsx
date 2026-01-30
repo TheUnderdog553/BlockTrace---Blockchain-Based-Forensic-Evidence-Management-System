@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Upload, FileText, Shield, AlertCircle, CheckCircle, Loader } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -18,20 +18,121 @@ const EvidenceUpload = () => {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [ipfsHash, setIpfsHash] = useState('')
+  const [fileHash, setFileHash] = useState('')
   const [errors, setErrors] = useState({})
 
   const categories = ['Malware', 'Ransom Note', 'Network Log', 'Disk Image', 'Memory Dump', 'Email', 'Other']
 
+  const normalizeEvidenceId = (id) => id.trim().toUpperCase()
+
+  const getHashRegistry = () => {
+    try {
+      return JSON.parse(localStorage.getItem('evidenceHashIndex') || '{}')
+    } catch {
+      return {}
+    }
+  }
+
+  const setHashRegistry = (registry) => {
+    localStorage.setItem('evidenceHashIndex', JSON.stringify(registry))
+  }
+
+  const seedHashRegistryFromEvidence = () => {
+    const savedEvidence = JSON.parse(localStorage.getItem('evidenceData') || '[]')
+    if (!savedEvidence.length) return
+
+    const registry = getHashRegistry()
+    let changed = false
+
+    savedEvidence.forEach((item) => {
+      const normalizedId = normalizeEvidenceId(item.id || '')
+      if (normalizedId && item.verificationHash && registry[normalizedId] !== item.verificationHash) {
+        registry[normalizedId] = item.verificationHash
+        changed = true
+      }
+    })
+
+    if (changed) {
+      setHashRegistry(registry)
+    }
+  }
+
+  useEffect(() => {
+    seedHashRegistryFromEvidence()
+  }, [])
+
+  // Calculate SHA-256 hash of file
+  const calculateFileHash = async (file) => {
+    const buffer = await file.arrayBuffer()
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    return hashHex
+  }
+
+  // Verify if file matches existing evidence
+  const verifyFileIntegrity = async (file, evidenceId) => {
+    const savedEvidence = JSON.parse(localStorage.getItem('evidenceData') || '[]')
+    const existingEvidence = savedEvidence.find(e => e.id === evidenceId)
+    
+    console.log('🔍 Verifying file integrity for:', evidenceId)
+    console.log('📋 Existing evidence:', existingEvidence)
+    
+    if (existingEvidence && existingEvidence.verificationHash) {
+      const currentHash = await calculateFileHash(file)
+      
+      console.log('🔐 Stored hash:', existingEvidence.verificationHash)
+      console.log('🔐 Current hash:', currentHash)
+      console.log('✅ Hashes match:', currentHash === existingEvidence.verificationHash)
+      
+      if (currentHash !== existingEvidence.verificationHash) {
+        return {
+          isValid: false,
+          message: `File hash mismatch! This file has been modified or is not the original evidence.`,
+          expectedHash: existingEvidence.verificationHash,
+          actualHash: currentHash
+        }
+      }
+      
+      return {
+        isValid: true,
+        message: 'File integrity verified successfully',
+        hash: currentHash
+      }
+    }
+    
+    // New evidence - calculate hash
+    console.log('✨ New evidence - calculating hash')
+    const hash = await calculateFileHash(file)
+    console.log('🔐 New hash:', hash)
+    return {
+      isValid: true,
+      message: 'New evidence file',
+      hash: hash
+    }
+  }
+
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    const nextValue = name === 'evidenceId' ? normalizeEvidenceId(value) : value
+    setFormData(prev => ({ ...prev, [name]: nextValue }))
+    
+    // Check if evidence ID already exists
+    if (name === 'evidenceId' && value) {
+      const savedEvidence = JSON.parse(localStorage.getItem('evidenceData') || '[]')
+      const existing = savedEvidence.find(ev => ev.id === value)
+      if (existing && existing.verificationHash) {
+        console.log('⚠️ Evidence ID exists - file verification will be required')
+      }
+    }
+    
     // Clear error for this field
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }))
     }
   }
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const selectedFile = e.target.files[0]
     if (selectedFile) {
       // Validate file size (max 100MB)
@@ -41,15 +142,25 @@ const EvidenceUpload = () => {
       }
       setFile(selectedFile)
       setErrors(prev => ({ ...prev, file: '' }))
+      
+      // Calculate and store file hash
+      try {
+        const hash = await calculateFileHash(selectedFile)
+        setFileHash(hash)
+      } catch (error) {
+        console.error('Error calculating file hash:', error)
+      }
     }
   }
 
   const validateForm = () => {
     const newErrors = {}
 
-    if (!formData.evidenceId.trim()) {
+    const normalizedEvidenceId = normalizeEvidenceId(formData.evidenceId)
+
+    if (!normalizedEvidenceId) {
       newErrors.evidenceId = 'Evidence ID is required'
-    } else if (!/^EV\d{3,}$/.test(formData.evidenceId)) {
+    } else if (!/^EV\d{3,}$/.test(normalizedEvidenceId)) {
       newErrors.evidenceId = 'Evidence ID must be in format EV001, EV002, etc.'
     }
 
@@ -97,45 +208,112 @@ const EvidenceUpload = () => {
       return
     }
 
-    // Check for duplicate evidence ID
-    const savedEvidence = JSON.parse(localStorage.getItem('evidenceData') || '[]')
-    const isDuplicate = savedEvidence.some(evidence => evidence.id === formData.evidenceId)
-    
-    if (isDuplicate) {
-      setErrors({ evidenceId: `Evidence ID "${formData.evidenceId}" already exists. Please use a different ID.` })
-      toast.error(`Evidence ID "${formData.evidenceId}" already exists!`, {
-        duration: 4000,
-        icon: '❌'
-      })
-      return
-    }
-
     setUploading(true)
     setUploadProgress(0)
 
     try {
+      const normalizedId = normalizeEvidenceId(formData.evidenceId)
+      const savedEvidence = JSON.parse(localStorage.getItem('evidenceData') || '[]')
+
+      // Calculate current file hash
+      const currentFileHash = await calculateFileHash(file)
+      
+      console.log('🔍 VERIFICATION CHECK')
+      console.log('Evidence ID:', normalizedId)
+      console.log('Current file hash:', currentFileHash)
+      console.log('All saved evidence IDs:', savedEvidence.map(e => e.id))
+      console.log('All saved evidence (full):', savedEvidence)
+      console.log('Normalized saved IDs:', savedEvidence.map(e => normalizeEvidenceId(e.id || '')))
+
+      // Use dedicated registry for verification
+      const hashRegistry = getHashRegistry()
+      console.log('Hash registry:', hashRegistry)
+      console.log('Registry has this ID?', normalizedId in hashRegistry)
+      
+      const existingEvidence = savedEvidence.find(e => {
+        const savedNormalized = normalizeEvidenceId(e.id || '')
+        console.log(`  Comparing: "${savedNormalized}" === "${normalizedId}" ? ${savedNormalized === normalizedId}`)
+        return savedNormalized === normalizedId
+      })
+      console.log('Found existing evidence?', !!existingEvidence)
+      console.log('Existing has verificationHash?', existingEvidence?.verificationHash)
+      
+      const storedHash = hashRegistry[normalizedId] || existingEvidence?.verificationHash
+      console.log('Stored hash to compare:', storedHash)
+      console.log('Hashes match?', currentFileHash === storedHash)
+
+      if (existingEvidence?.verificationHash && !hashRegistry[normalizedId]) {
+        console.log('💾 Backfilling registry with existing hash')
+        setHashRegistry({ ...hashRegistry, [normalizedId]: existingEvidence.verificationHash })
+      }
+
+      if (storedHash && currentFileHash !== storedHash) {
+        setUploading(false)
+        setErrors({
+          file: 'File hash mismatch! This is not the original evidence file.',
+          hashMismatch: true
+        })
+
+        toast.error('⚠️ INCORRECT EVIDENCE FILE!', {
+          duration: 6000,
+          style: {
+            background: '#991b1b',
+            color: '#fff',
+            fontWeight: 'bold',
+            fontSize: '16px'
+          }
+        })
+
+        toast.error(`Expected: ${storedHash.substring(0, 20)}...`, {
+          duration: 5000,
+          style: { background: '#7f1d1d', color: '#fff' }
+        })
+
+        toast.error(`Got: ${currentFileHash.substring(0, 20)}...`, {
+          duration: 5000,
+          style: { background: '#7f1d1d', color: '#fff' }
+        })
+
+        return
+      }
+
+      const isReUpload = !!storedHash
+
       // Simulate file upload to IPFS
       const generatedHash = await simulateUpload()
       setIpfsHash(generatedHash)
 
+      const existingIndex = savedEvidence.findIndex(e => normalizeEvidenceId(e.id || '') === normalizedId)
+
       // Save to localStorage (simulating database)
       const newEvidence = {
-        id: formData.evidenceId,
+        id: normalizedId,
         ipfsHash: generatedHash,
-        verificationHash: generatedHash,
+        verificationHash: currentFileHash,
         description: formData.description,
         category: formData.category,
-        status: 'pending',
+        status: isReUpload ? 'verified' : 'uploaded',
         custodian: 'ForensicsOrg',
         submitter: formData.submitterName,
         sourceIP: formData.sourceIP,
         collectionDate: formData.collectionDate,
         lastModified: new Date().toISOString(),
         fileName: file.name,
-        fileSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`
+        fileSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+        integrityVerified: isReUpload
       }
-      savedEvidence.push(newEvidence)
+      
+      if (existingIndex !== -1) {
+        savedEvidence[existingIndex] = newEvidence
+      } else {
+        savedEvidence.push(newEvidence)
+      }
+      
       localStorage.setItem('evidenceData', JSON.stringify(savedEvidence))
+
+      // Update hash registry after successful save
+      const updatedRegistry = { ...hashRegistry, [normalizedId]: currentFileHash }
+      setHashRegistry(updatedRegistry)
 
       // Add notification to bell icon
       const notifications = JSON.parse(localStorage.getItem('notifications') || '[]')
@@ -362,6 +540,52 @@ const EvidenceUpload = () => {
               <AlertCircle className="w-4 h-4" />
               {errors.file}
             </p>
+          )}
+          
+          {/* File Hash Display */}
+          {file && fileHash && !errors.file && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-3 p-3 bg-dark-lighter border border-gray-700 rounded-lg"
+            >
+              <div className="flex items-start gap-2">
+                <Shield className="w-5 h-5 text-neon mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-300 mb-1">File Hash (SHA-256)</p>
+                  <p className="text-xs text-gray-400 font-mono break-all">{fileHash}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    This hash will be used to verify file integrity on future uploads
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+          
+          {/* Hash Mismatch Warning */}
+          {errors.hashMismatch && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mt-3 p-4 bg-danger/10 border-2 border-danger rounded-lg"
+            >
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-6 h-6 text-danger mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <h4 className="text-danger font-bold text-sm mb-2">
+                    ⚠️ FILE INTEGRITY CHECK FAILED
+                  </h4>
+                  <p className="text-danger/90 text-sm mb-2">
+                    The uploaded file does not match the original evidence. The file may have been:
+                  </p>
+                  <ul className="list-disc list-inside text-danger/80 text-xs space-y-1 ml-2">
+                    <li>Modified or tampered with</li>
+                    <li>Corrupted during transfer</li>
+                    <li>The wrong file for this evidence ID</li>
+                  </ul>
+                </div>
+              </div>
+            </motion.div>
           )}
         </div>
 

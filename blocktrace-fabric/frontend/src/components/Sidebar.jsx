@@ -8,7 +8,11 @@ import {
   BarChart3,
   Database,
   Settings,
-  Scale
+  Scale,
+  Shield,
+  Activity,
+  Wallet,
+  GitBranch
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -19,6 +23,10 @@ const navItems = [
   { icon: ArrowLeftRight, label: 'Transfer Custody', path: '/transfer' },
   { icon: ShieldCheck, label: 'Verification', path: '/verify' },
   { icon: BarChart3, label: 'Analytics', path: '/analytics' },
+  { icon: Shield, label: 'Ransomware Tracking', path: '/ransomware' },
+  { icon: Activity, label: 'Ransomware Analytics', path: '/ransomware-analytics' },
+  { icon: Wallet, label: 'Wallet Monitoring', path: '/wallet-monitoring' },
+  { icon: GitBranch, label: 'Payment Flow', path: '/payment-flow' },
   { icon: Scale, label: 'Court Report', path: '/court-report' },
 ]
 
